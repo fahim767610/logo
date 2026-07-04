@@ -1,0 +1,35 @@
+name: Import TV Logos from tv-logo
+
+on:
+  workflow_dispatch: # Manual trigger
+  schedule:
+    - cron: '0 */6 * * *' # Every 6 hours
+
+jobs:
+  fetch-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout your repo
+        uses: actions/checkout@v3
+
+      - name: Clone the source repo (tv-logos)
+        run: |
+          git clone --depth=1 "${{ secrets.SOURCE_URL }}" source-repo
+
+      - name: Copy logos from 'countries' folder
+        run: |
+          mkdir -p countries
+          cp -r source-repo/countries/* countries/
+
+      - name: Count logos copied
+        run: |
+          echo "Total logos copied: $(find countries -type f | wc -l)"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "AutoBot"
+          git config user.email "actions@github.com"
+          git add countries
+          git diff --cached --quiet || git commit -m "Auto update TV logos"
+          git push

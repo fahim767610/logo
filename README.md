@@ -1,2 +1,0 @@
-# logo
-All Channel Logo

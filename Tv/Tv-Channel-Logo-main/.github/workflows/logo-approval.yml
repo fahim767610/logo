@@ -1,0 +1,57 @@
+name: "Logo Submission Approval"
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  auto-add-logo:
+    if: github.event.label.name == 'approved'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get Issue Details
+        uses: actions/github-script@v7
+        id: issue_data
+        with:
+          script: |
+            const issue_number = context.payload.issue.number;
+            const issue = await github.rest.issues.get({
+              ...context.repo,
+              issue_number,
+            });
+
+            const body = issue.data.body;
+            const nameMatch = body.match(/Logo Name.*\n.*\n(.*)/);
+            const categoryMatch = body.match(/Category.*\n.*\n(.*)/);
+            const imageMatch = body.match(/http.*\.(png|jpg|jpeg)/);
+
+            return {
+              logo_name: nameMatch ? nameMatch[1].trim() : "Unknown",
+              category: categoryMatch ? categoryMatch[1].trim() : "Others",
+              image_url: imageMatch ? imageMatch[0] : ""
+            };
+
+      - name: Download logo
+        run: |
+          mkdir -p "logos/${{ steps.issue_data.outputs.category }}"
+          curl -sL "${{ steps.issue_data.outputs.image_url }}" -o "logos/${{ steps.issue_data.outputs.category }}/${{ steps.issue_data.outputs.logo_name }}.png"
+
+      - name: Commit logo
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add logo: ${{ steps.issue_data.outputs.logo_name }}"
+          branch: main
+
+      - name: Close Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              ...context.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });
